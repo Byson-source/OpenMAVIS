@@ -21,19 +21,18 @@
 #--------------------------------------------------------------------------------------------
 File.version: "1.0"
 
-Camera.type: "PinHole"
+# "Rectified": the node hands ORB an already-undistorted ideal pinhole image, so
+# there is no distortion to model. This model path (Settings.cc) takes only the
+# 4 intrinsics -- crucially it does NOT require Camera1.overlappingBegin/End and
+# does NOT run the MAVIS PinHole branch's KannalaBrandt8-cast on the Pinhole object
+# (an out-of-bounds write that corrupts the heap). Use "Rectified", not "PinHole".
+Camera.type: "Rectified"
 
 # Virtual pinhole intrinsics (post-undistort target Knew = calib.txt "700 700 736 720").
 Camera1.fx: 700.0
 Camera1.fy: 700.0
 Camera1.cx: 736.0
 Camera1.cy: 720.0
-
-# No distortion: the node hands ORB an already-rectified pinhole image.
-Camera1.k1: 0.0
-Camera1.k2: 0.0
-Camera1.p1: 0.0
-Camera1.p2: 0.0
 
 # Undistorted image size (node keeps input resolution).
 Camera.width: 1472
