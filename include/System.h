@@ -199,6 +199,12 @@ public:
 
     float GetImageScale();
 
+    // z-floc: expose the Atlas and Tracker so the ROS2 wrapper can build an
+    // incremental pose graph (KeyFrames/edges) and recover the dense frame
+    // trajectory without adding hooks inside the mapping/loop threads.
+    Atlas* GetAtlas() { return mpAtlas; }
+    Tracking* GetTracker() { return mpTracker; }
+
 #ifdef REGISTER_TIMES
     void InsertRectTime(double& time);
     void InsertResizeTime(double& time);

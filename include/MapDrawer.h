@@ -28,7 +28,9 @@
 #include"MapPoint.h"
 #include"KeyFrame.h"
 #include "Settings.h"
+#ifndef ORB_HEADLESS
 #include<pangolin/pangolin.h>
+#endif
 
 #include<mutex>
 
@@ -47,12 +49,16 @@ public:
 
     Atlas* mpAtlas;
 
+#ifndef ORB_HEADLESS
     void DrawMapPoints();
     void DrawKeyFrames(const bool bDrawKF, const bool bDrawGraph, const bool bDrawInertialGraph, const bool bDrawOptLba);
     void DrawCurrentCamera(pangolin::OpenGlMatrix &Twc);
+#endif
     void SetCurrentCameraPose(const Sophus::SE3f &Tcw);
     void SetReferenceKeyFrame(KeyFrame *pKF);
+#ifndef ORB_HEADLESS
     void GetCurrentOpenGLCameraMatrix(pangolin::OpenGlMatrix &M, pangolin::OpenGlMatrix &MOw);
+#endif
 
 private:
 

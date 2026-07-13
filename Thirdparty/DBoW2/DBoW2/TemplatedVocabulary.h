@@ -18,6 +18,7 @@
 #define __D_T_TEMPLATED_VOCABULARY__
 
 #include <cassert>
+#include <cstring>
 
 #include <vector>
 #include <numeric>
@@ -241,10 +242,18 @@ public:
   bool loadFromTextFile(const std::string &filename);
 
   /**
+   * Loads the vocabulary from a binary file (ORB_SLAM binary vocab format).
+   * Byte-compatible with the ORBvoc.txt.bin shipped in this repo. ~50x faster
+   * than the text loader.
+   * @param filename
+   */
+  bool loadFromBinFile(const std::string &filename);
+
+  /**
    * Saves the vocabulary into a text file
    * @param filename
    */
-  void saveToTextFile(const std::string &filename) const;  
+  void saveToTextFile(const std::string &filename) const;
 
   /**
    * Saves the vocabulary into a file
@@ -1421,6 +1430,85 @@ bool TemplatedVocabulary<TDescriptor,F>::loadFromTextFile(const std::string &fil
 
     return true;
 
+}
+
+// --------------------------------------------------------------------------
+
+template<class TDescriptor, class F>
+bool TemplatedVocabulary<TDescriptor,F>::loadFromBinFile(const std::string &filename)
+{
+    ifstream f;
+    f.open(filename.c_str(), ios_base::in | ios::binary);
+
+    if(f.eof())
+        return false;
+    if(f.fail())
+    {
+        std::cerr << "An error occured while opening the input stream: " << filename << endl;
+        return false;
+    }
+
+    m_words.clear();
+    m_nodes.clear();
+
+    f.read((char*)&m_k, sizeof(m_k));
+    f.read((char*)&m_L, sizeof(m_L));
+    int n1, n2;
+    f.read((char*)&n1, sizeof(n1));
+    f.read((char*)&n2, sizeof(n2));
+
+    if(m_k<0 || m_k>20 || m_L<1 || m_L>10 || n1<0 || n1>5 || n2<0 || n2>3)
+    {
+        std::cerr << "Vocabulary loading failure: This is not a correct binary file!" << endl;
+        return false;
+    }
+
+    m_scoring = (ScoringType)n1;
+    m_weighting = (WeightingType)n2;
+    createScoringObject();
+
+    int expected_nodes =
+        (int)((pow((double)m_k, (double)m_L + 1) - 1)/(m_k - 1));
+    m_nodes.reserve(expected_nodes);
+    m_words.reserve(pow((double)m_k, (double)m_L + 1));
+    m_nodes.resize(1);
+    m_nodes[0].id = 0;
+
+    while((!f.eof()) && (m_nodes.size() < (unsigned int)expected_nodes))
+    {
+        int nid = m_nodes.size();
+        m_nodes.resize(m_nodes.size()+1);
+        m_nodes[nid].id = nid;
+
+        int pid;
+        f.read((char*)&pid, sizeof(pid));
+        m_nodes[nid].parent = pid;
+        m_nodes[pid].children.push_back(nid);
+
+        unsigned char nIsLeafuc;
+        f.read((char*)&nIsLeafuc, sizeof(nIsLeafuc));
+
+        unsigned char array[F::L];
+        f.read((char*)array, (long)F::L);
+        m_nodes[nid].descriptor.create(1, F::L, CV_8U);
+        memcpy(m_nodes[nid].descriptor.data, array, F::L);
+
+        f.read((char*)&m_nodes[nid].weight, sizeof(m_nodes[nid].weight));
+
+        if(nIsLeafuc > 0)
+        {
+            int wid = m_words.size();
+            m_words.resize(wid+1);
+            m_nodes[nid].word_id = wid;
+            m_words[wid] = &m_nodes[nid];
+        }
+        else
+        {
+            m_nodes[nid].children.reserve(m_k);
+        }
+    }
+
+    return true;
 }
 
 // --------------------------------------------------------------------------

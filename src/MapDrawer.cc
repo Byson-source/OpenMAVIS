@@ -24,7 +24,9 @@
 #include "MapDrawer.h"
 #include "MapPoint.h"
 #include "KeyFrame.h"
+#ifndef ORB_HEADLESS
 #include <pangolin/pangolin.h>
+#endif
 #include <mutex>
 
 namespace ORB_SLAM3
@@ -137,6 +139,7 @@ bool MapDrawer::ParseViewerParamFile(cv::FileStorage &fSettings)
     return !b_miss_params;
 }
 
+#ifndef ORB_HEADLESS
 void MapDrawer::DrawMapPoints()
 {
     Map* pActiveMap = mpAtlas->GetCurrentMap();
@@ -443,12 +446,15 @@ void MapDrawer::DrawCurrentCamera(pangolin::OpenGlMatrix &Twc)
 }
 
 
+#endif // ORB_HEADLESS (DrawMapPoints / DrawKeyFrames / DrawCurrentCamera)
+
 void MapDrawer::SetCurrentCameraPose(const Sophus::SE3f &Tcw)
 {
     unique_lock<mutex> lock(mMutexCamera);
     mCameraPose = Tcw.inverse();
 }
 
+#ifndef ORB_HEADLESS
 void MapDrawer::GetCurrentOpenGLCameraMatrix(pangolin::OpenGlMatrix &M, pangolin::OpenGlMatrix &MOw)
 {
     Eigen::Matrix4f Twc;
@@ -469,4 +475,5 @@ void MapDrawer::GetCurrentOpenGLCameraMatrix(pangolin::OpenGlMatrix &M, pangolin
     MOw.m[13] = Twc(1,3);
     MOw.m[14] = Twc(2,3);
 }
+#endif // ORB_HEADLESS (GetCurrentOpenGLCameraMatrix)
 } //namespace ORB_SLAM

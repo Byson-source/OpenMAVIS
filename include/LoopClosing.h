@@ -250,7 +250,7 @@ protected:
     bool mbFixScale;
 
 
-    bool mnFullBAIdx;
+    int mnFullBAIdx;   // monotonic BA-request index (was bool; ++ is UB on bool in C++17)
 
 
 

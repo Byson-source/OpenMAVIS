@@ -1,0 +1,32 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>openmavis_ros2</name>
+  <version>1.0.0</version>
+  <description>
+    ROS2 mono-inertial front-end for OpenMAVIS (MAVIS-SLAM, an ORB-SLAM3 fork),
+    publishing the z-floc pose-graph contract (/openmavis/pose_graph with real reprojection-
+    Hessian edge info), per-frame odometry, KF images, and a dense loop-corrected
+    camera trajectory for the zfloc e2e pipeline.
+  </description>
+  <maintainer email="umemura.ayumi.t6@dc.tohoku.ac.jp">ayumi</maintainer>
+  <license>GPL-3.0</license>
+
+  <buildtool_depend>ament_cmake</buildtool_depend>
+
+  <depend>rclcpp</depend>
+  <depend>sensor_msgs</depend>
+  <depend>nav_msgs</depend>
+  <depend>geometry_msgs</depend>
+  <depend>std_msgs</depend>
+  <depend>cv_bridge</depend>
+  <depend>image_transport</depend>
+  <depend>okvis_pose_graph_msgs</depend>
+
+  <build_depend>boost_serialization</build_depend>
+  <build_depend>libcrypto</build_depend>
+
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
+</package>

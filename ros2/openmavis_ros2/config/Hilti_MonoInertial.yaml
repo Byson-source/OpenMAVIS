@@ -1,0 +1,92 @@
+%YAML:1.0
+
+#--------------------------------------------------------------------------------------------
+# HILTI-Trimble SLAM Challenge 2026 — cam0 fisheye + IMU (mono-inertial).
+# OpenMAVIS (ORB-SLAM3 fork) front-end, SLAM_ALG=openmavis.
+#
+# Camera: Insta360 One-RS 1-Inch Edition (dual fisheye, pinhole-equidistant model).
+# ALL calibration values below are taken verbatim from the OKVIS2-X reference config
+#   src/OKVIS2-X/config/hilti/okvis2_share.yaml  (cam0 block + imu_parameters),
+# which is the proven kalibr calibration for these sequences. Keep them in sync with
+# that file — do not re-derive from a different kalibr chain (an earlier Mechazo11
+# kalibr differed by ~0.1-0.8 deg rotation / ~5-6 mm translation and destabilised
+# mono-inertial IMU init).
+#
+# OpenMAVIS uses IMU_MULTI (4 cams) only when Camera3/Camera4 are present; with just
+# Camera1 it runs the standard ORB-SLAM3 IMU_MONOCULAR path (Settings.cc reads the
+# same keys). Hilti raw bags carry only cam0(front)+cam1(back) with ~no overlap, so
+# we drive mono-inertial on cam0.
+#--------------------------------------------------------------------------------------------
+File.version: "1.0"
+
+Camera.type: "KannalaBrandt8"
+
+# cam0 intrinsics  <- okvis2_share.yaml cam0 focal_length / principal_point.
+Camera1.fx: 465.3015482593691
+Camera1.fy: 465.32303798346413
+Camera1.cx: 730.0455886686005
+Camera1.cy: 720.1427007671206
+
+# cam0 equidistant (Kannala-Brandt) distortion k1..k4
+#   <- okvis2_share.yaml cam0 distortion_coefficients (distortion_type: equidistant).
+Camera1.k1: 0.025800718903376804
+Camera1.k2: -0.010909240777406872
+Camera1.k3: -0.0016899537986031076
+Camera1.k4: 0.00014766801645260894
+
+# Camera resolution (full-res fisheye)  <- okvis2_share.yaml cam0 image_dimension.
+Camera.width: 1472
+Camera.height: 1440
+
+# Frame rate (measured 30.0 Hz on the raw Hilti bag /cam0/image_raw/compressed).
+Camera.fps: 30
+
+# Color order (ignored for grayscale input; the node decodes grayscale).
+Camera.RGB: 1
+
+#--------------------------------------------------------------------------------------------
+# IMU Parameters  <- okvis2_share.yaml imu_parameters + cam0 T_SC.
+#--------------------------------------------------------------------------------------------
+# T_b_c1 = body(imu) <- cam0.  OKVIS T_SC is exactly this transform (T_sensor_camera),
+# so IMU.T_b_c1 == okvis2_share.yaml cam0 T_SC verbatim (rows 1..4 below match the
+# 4x4 there). ORB-SLAM3 expects body<-cam here, which is the same convention.
+IMU.T_b_c1: !!opencv-matrix
+   rows: 4
+   cols: 4
+   dt: f
+   data: [ 0.0186268922991908,   0.999791278707894,    -0.00839272916929751, -0.0141445202002632,
+          -0.00299548177253861, -0.00833834361799002,  -0.999960748787001,   -0.0215291462288828,
+          -0.999822017147164,    0.0186513014383221,    0.00283953912318657,  0.0254496559751759,
+           0.0, 0.0, 0.0, 1.0]
+
+# imu0 continuous-time noise densities  <- okvis2_share.yaml imu_parameters.
+IMU.NoiseAcc:  0.00285891188   # m/s^1.5   (sigma_a_c,  accelerometer noise density)
+IMU.NoiseGyro: 0.00047032046   # rad/s^0.5 (sigma_g_c,  gyro noise density)
+IMU.AccWalk:   0.00130039805   # m/s^2.5   (sigma_aw_c, accelerometer random walk)
+IMU.GyroWalk:  0.00036433633   # rad/s^1.5 (sigma_gw_c, gyro random walk)
+# IMU rate: measured ~993 Hz on /imu/data_raw (nominal 1 kHz).
+IMU.Frequency: 1000.0
+
+#--------------------------------------------------------------------------------------------
+# ORB Parameters
+#--------------------------------------------------------------------------------------------
+# More features than the 512x512 TUM-VI template: the Hilti fisheye is 1472x1440.
+ORBextractor.nFeatures: 2000
+ORBextractor.scaleFactor: 1.2
+ORBextractor.nLevels: 8
+ORBextractor.iniThFAST: 20
+ORBextractor.minThFAST: 7
+
+#--------------------------------------------------------------------------------------------
+# Viewer Parameters (viewer disabled at runtime / ORB_HEADLESS; kept for completeness)
+#--------------------------------------------------------------------------------------------
+Viewer.KeyFrameSize: 0.05
+Viewer.KeyFrameLineWidth: 1.0
+Viewer.GraphLineWidth: 0.9
+Viewer.PointSize: 2.0
+Viewer.CameraSize: 0.08
+Viewer.CameraLineWidth: 3.0
+Viewer.ViewpointX: 0.0
+Viewer.ViewpointY: -0.7
+Viewer.ViewpointZ: -3.5
+Viewer.ViewpointF: 500.0

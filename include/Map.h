@@ -24,7 +24,9 @@
 #include "KeyFrame.h"
 
 #include <set>
+#ifndef ORB_HEADLESS
 #include <pangolin/pangolin.h>
+#endif
 #include <mutex>
 
 #include <boost/serialization/base_object.hpp>
@@ -188,7 +190,7 @@ protected:
 
 
     // View of the map in aerial sight (for the AtlasViewer)
-    GLubyte* mThumbnail;
+    unsigned char* mThumbnail;  // was GLubyte* (GL typedef); decoupled from Pangolin for headless build
 
     bool mIsInUse;
     bool mHasTumbnail;

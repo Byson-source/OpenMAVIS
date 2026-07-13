@@ -22,7 +22,9 @@
 ******************************************************************************/
 
 #include "Viewer.h"
+#ifndef ORB_HEADLESS
 #include <pangolin/pangolin.h>
+#endif
 
 #include <mutex>
 
@@ -167,6 +169,7 @@ void Viewer::Run()
 {
     mbFinished = false;
     mbStopped = false;
+#ifndef ORB_HEADLESS
 
     pangolin::CreateWindowAndBind("ORB-SLAM3-Multi: Map Viewer",1024,768);
 
@@ -422,6 +425,7 @@ void Viewer::Run()
         if(CheckFinish())
             break;
     }
+#endif // ORB_HEADLESS
 
     SetFinish();
 }

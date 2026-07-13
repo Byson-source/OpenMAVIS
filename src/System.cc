@@ -24,7 +24,9 @@
 #include "System.h"
 #include "Converter.h"
 #include <thread>
+#ifndef ORB_HEADLESS
 #include <pangolin/pangolin.h>
+#endif
 #include <iomanip>
 #include <openssl/md5.h>
 #include <boost/serialization/base_object.hpp>
@@ -40,6 +42,16 @@ namespace ORB_SLAM3
 {
 
 Verbose::eLevel Verbose::th = Verbose::VERBOSITY_NORMAL;
+
+// Load the ORB vocabulary, dispatching on file extension: ".bin" uses the fast
+// binary loader, anything else falls back to the original text loader.
+static bool LoadVocabularyAuto(ORBVocabulary* voc, const string& strVocFile)
+{
+    if(strVocFile.size() >= 4 &&
+       strVocFile.compare(strVocFile.size()-4, 4, ".bin") == 0)
+        return voc->loadFromBinFile(strVocFile);
+    return voc->loadFromTextFile(strVocFile);
+}
 
 System::System(const string &strVocFile, const string &strSettingsFile, const eSensor sensor,
                const bool bUseViewer, const int initFr, const string &strSequence):
@@ -120,7 +132,7 @@ System::System(const string &strVocFile, const string &strSettingsFile, const eS
         cout << endl << "Loading ORB Vocabulary. This could take a while..." << endl;
 
         mpVocabulary = new ORBVocabulary();
-        bool bVocLoad = mpVocabulary->loadFromTextFile(strVocFile);
+        bool bVocLoad = LoadVocabularyAuto(mpVocabulary, strVocFile);
         if(!bVocLoad)
         {
             cerr << "Wrong path to vocabulary. " << endl;
@@ -142,7 +154,7 @@ System::System(const string &strVocFile, const string &strSettingsFile, const eS
         cout << endl << "Loading ORB Vocabulary. This could take a while..." << endl;
 
         mpVocabulary = new ORBVocabulary();
-        bool bVocLoad = mpVocabulary->loadFromTextFile(strVocFile);
+        bool bVocLoad = LoadVocabularyAuto(mpVocabulary, strVocFile);
         if(!bVocLoad)
         {
             cerr << "Wrong path to vocabulary. " << endl;
