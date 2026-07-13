@@ -125,27 +125,45 @@ class OrbSlam3Node : public rclcpp::Node {
                 image_topic_.c_str(), imu_topic_.c_str(), output_ns_.c_str());
   }
 
-  // Shutdown SLAM, recover the dense trajectory, publish final snapshots, and
-  // wait for the recorder to receive them. Called from main after SIGINT.
+  // Recover the dense trajectory, publish final snapshots, wait for the recorder
+  // to ack them, and ONLY THEN shut SLAM down. Called from main after SIGINT.
+  //
+  // Ordering is deliberate: OpenMAVIS (like ORB-SLAM3) can segfault inside the
+  // LoopClosing FUSE / final global-BA that System::Shutdown() runs on a
+  // mono-inertial map. If Shutdown() crashes, everything after it is lost -> the
+  // recorder never gets trajectory_final or the loop-closed pose graph and eval
+  // falls back to the stale-scale /odometry stream (up-to-scale pre-VIBA poses).
+  // So we flush the FINAL runtime map (already VIBA-metric + loop-corrected)
+  // BEFORE Shutdown(); the final GBA is only a marginal refinement. Shutdown()
+  // is then best-effort -- if it segfaults, the good data is already recorded.
   void Finalize() {
     running_.store(false);
     img_cv_.notify_all();
     imu_cv_.notify_all();
     if (worker_.joinable()) worker_.join();
 
-    RCLCPP_INFO(get_logger(), "shutting down SLAM (final GBA)...");
-    slam_->Shutdown();
+    // Stop the loop closer from starting NEW fusions (the crash site); let any
+    // in-flight loop fusion settle so the map is in a consistent state to read.
+    RCLCPP_INFO(get_logger(), "deactivating loop closing; settling before flush...");
+    slam_->DeActivateLC();
+    std::this_thread::sleep_for(std::chrono::seconds(3));
 
+    // Flush the final map to the recorder FIRST (before the crash-prone Shutdown).
     PublishTrajectoryFinal();
     PublishTrajectorySnapshot();
     PublishPoseGraph();
 
     // HI-SLAM2 lesson: make sure the reliable end-of-run messages are acked by
-    // the recorder before we exit (it stays alive until this node dies).
+    // the recorder before we risk the shutdown crash (it stays alive until this
+    // node dies).
     pub_traj_final_->wait_for_all_acked(std::chrono::seconds(3));
     pub_graph_->wait_for_all_acked(std::chrono::seconds(3));
     std::this_thread::sleep_for(std::chrono::seconds(2));
-    RCLCPP_INFO(get_logger(), "finalize done: trajectory_final + pose_graph flushed");
+    RCLCPP_INFO(get_logger(), "trajectory_final + pose_graph flushed; shutting down SLAM (best-effort)...");
+
+    // Best-effort final shutdown (runs final GBA; may segfault -- data is safe).
+    slam_->Shutdown();
+    RCLCPP_INFO(get_logger(), "finalize done");
   }
 
  private:
