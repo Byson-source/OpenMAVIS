@@ -1,40 +1,41 @@
 %YAML:1.0
 
 #--------------------------------------------------------------------------------------------
-# HILTI-Trimble SLAM Challenge 2026 — cam0 fisheye + IMU (mono-inertial).
+# HILTI-Trimble SLAM Challenge 2026 — cam0 (mono-inertial), UNDISTORTED to pinhole.
 # OpenMAVIS (ORB-SLAM3 fork) front-end, SLAM_ALG=openmavis.
 #
-# Camera: Insta360 One-RS 1-Inch Edition (dual fisheye, pinhole-equidistant model).
-# ALL calibration values below are taken verbatim from the OKVIS2-X reference config
-#   src/OKVIS2-X/config/hilti/okvis2_share.yaml  (cam0 block + imu_parameters),
-# which is the proven kalibr calibration for these sequences. Keep them in sync with
-# that file — do not re-derive from a different kalibr chain (an earlier Mechazo11
-# kalibr differed by ~0.1-0.8 deg rotation / ~5-6 mm translation and destabilised
-# mono-inertial IMU init).
+# IMPORTANT: the Hilti cam0 is a Leica ~200 deg fisheye (Insta360 One-RS 1-inch).
+# Feeding the RAW fisheye to ORB as a KannalaBrandt8 camera makes tracking collapse
+# ("Fail to track local map" storms -> unstable VIO init -> segfault). So the node
+# UNDISTORTS each frame to a virtual PINHOLE (cv::fisheye::initUndistortRectifyMap,
+# R = I so the optical frame / IMU.T_b_c1 is unchanged) BEFORE tracking. This config
+# therefore describes the VIRTUAL PINHOLE that the node feeds ORB, NOT the raw fisheye.
 #
-# OpenMAVIS uses IMU_MULTI (4 cams) only when Camera3/Camera4 are present; with just
-# Camera1 it runs the standard ORB-SLAM3 IMU_MONOCULAR path (Settings.cc reads the
-# same keys). Hilti raw bags carry only cam0(front)+cam1(back) with ~no overlap, so
-# we drive mono-inertial on cam0.
+# Undistort params (must match the node's fisheye_* / pinhole_* params, both default
+# to these values). Source fisheye + target pinhole from the proven DROID-W recipe
+# (project_droidw_hilti_fisheye_undistort) and $GROUP/hilti/calib.txt:
+#   source fisheye K  = fx 465.30  fy 465.32  cx 730.05  cy 720.14
+#   source fisheye D  = [0.0258, -0.01091, -0.00169, 0.0001477]  (equidistant/KB8)
+#   target pinhole Knew = fx 700  fy 700  cx 736  cy 720   (HFoV ~92 deg, 0% black border)
+#   output size = 1472 x 1440 (same as input)
 #--------------------------------------------------------------------------------------------
 File.version: "1.0"
 
-Camera.type: "KannalaBrandt8"
+Camera.type: "PinHole"
 
-# cam0 intrinsics  <- okvis2_share.yaml cam0 focal_length / principal_point.
-Camera1.fx: 465.3015482593691
-Camera1.fy: 465.32303798346413
-Camera1.cx: 730.0455886686005
-Camera1.cy: 720.1427007671206
+# Virtual pinhole intrinsics (post-undistort target Knew = calib.txt "700 700 736 720").
+Camera1.fx: 700.0
+Camera1.fy: 700.0
+Camera1.cx: 736.0
+Camera1.cy: 720.0
 
-# cam0 equidistant (Kannala-Brandt) distortion k1..k4
-#   <- okvis2_share.yaml cam0 distortion_coefficients (distortion_type: equidistant).
-Camera1.k1: 0.025800718903376804
-Camera1.k2: -0.010909240777406872
-Camera1.k3: -0.0016899537986031076
-Camera1.k4: 0.00014766801645260894
+# No distortion: the node hands ORB an already-rectified pinhole image.
+Camera1.k1: 0.0
+Camera1.k2: 0.0
+Camera1.p1: 0.0
+Camera1.p2: 0.0
 
-# Camera resolution (full-res fisheye)  <- okvis2_share.yaml cam0 image_dimension.
+# Undistorted image size (node keeps input resolution).
 Camera.width: 1472
 Camera.height: 1440
 
@@ -47,9 +48,8 @@ Camera.RGB: 1
 #--------------------------------------------------------------------------------------------
 # IMU Parameters  <- okvis2_share.yaml imu_parameters + cam0 T_SC.
 #--------------------------------------------------------------------------------------------
-# T_b_c1 = body(imu) <- cam0.  OKVIS T_SC is exactly this transform (T_sensor_camera),
-# so IMU.T_b_c1 == okvis2_share.yaml cam0 T_SC verbatim (rows 1..4 below match the
-# 4x4 there). ORB-SLAM3 expects body<-cam here, which is the same convention.
+# T_b_c1 = body(imu) <- cam0.  Unchanged by the R = I undistort (the virtual pinhole
+# shares cam0's optical center and axis). == okvis2_share.yaml cam0 T_SC verbatim.
 IMU.T_b_c1: !!opencv-matrix
    rows: 4
    cols: 4

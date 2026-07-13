@@ -30,6 +30,8 @@
 #include <vector>
 
 #include <opencv2/imgcodecs.hpp>
+#include <opencv2/calib3d.hpp>
+#include <opencv2/imgproc.hpp>
 
 #include <rclcpp/rclcpp.hpp>
 #include <sensor_msgs/msg/compressed_image.hpp>
@@ -96,6 +98,32 @@ class OrbSlam3Node : public rclcpp::Node {
     image_delay_ = declare_parameter<double>("image_delay", 0.006569);
     if (!output_ns_.empty() && output_ns_.back() == '/')
       output_ns_.pop_back();
+
+    // Fisheye -> pinhole undistort. The Hilti cam0 is a ~200 deg fisheye; the raw
+    // frame as KannalaBrandt8 makes ORB tracking collapse. We rectify each frame to
+    // a virtual pinhole (R = I, so the optical frame / IMU.T_b_c1 is unchanged) and
+    // feed THAT to ORB. The settings_file must be the matching PinHole config. The
+    // re-emitted /image topic stays the RAW fisheye (downstream reconstructs from the
+    // raw panorama bag, and poses are in the same cam0 frame). Defaults = proven
+    // DROID-W recipe (project_droidw_hilti_fisheye_undistort) + calib.txt Knew.
+    undistort_ = declare_parameter<bool>("undistort", true);
+    const double fx = declare_parameter<double>("fisheye_fx", 465.3015482593691);
+    const double fy = declare_parameter<double>("fisheye_fy", 465.32303798346413);
+    const double cx = declare_parameter<double>("fisheye_cx", 730.0455886686005);
+    const double cy = declare_parameter<double>("fisheye_cy", 720.1427007671206);
+    const double k1 = declare_parameter<double>("fisheye_k1", 0.025800718903376804);
+    const double k2 = declare_parameter<double>("fisheye_k2", -0.010909240777406872);
+    const double k3 = declare_parameter<double>("fisheye_k3", -0.0016899537986031076);
+    const double k4 = declare_parameter<double>("fisheye_k4", 0.00014766801645260894);
+    const double nfx = declare_parameter<double>("pinhole_fx", 700.0);
+    const double nfy = declare_parameter<double>("pinhole_fy", 700.0);
+    const double ncx = declare_parameter<double>("pinhole_cx", 736.0);
+    const double ncy = declare_parameter<double>("pinhole_cy", 720.0);
+    und_w_ = declare_parameter<int>("undistort_width", 1472);
+    und_h_ = declare_parameter<int>("undistort_height", 1440);
+    fish_K_ = (cv::Mat_<double>(3, 3) << fx, 0, cx, 0, fy, cy, 0, 0, 1);
+    fish_D_ = (cv::Mat_<double>(4, 1) << k1, k2, k3, k4);
+    new_K_ = (cv::Mat_<double>(3, 3) << nfx, 0, ncx, 0, nfy, ncy, 0, 0, 1);
 
     slam_ = std::make_unique<ORB_SLAM3::System>(
         voc_file_, settings_file_, ORB_SLAM3::System::IMU_MONOCULAR,
@@ -223,6 +251,21 @@ class OrbSlam3Node : public rclcpp::Node {
     if (im.empty()) {
       RCLCPP_WARN(get_logger(), "failed to decode image @ %.6f", t);
       return;
+    }
+
+    // Rectify fisheye -> virtual pinhole before tracking (see ctor). Build the
+    // remap tables once from the first frame's size (equidistant/KB8 model).
+    if (undistort_) {
+      if (!maps_ready_) {
+        cv::fisheye::initUndistortRectifyMap(
+            fish_K_, fish_D_, cv::Mat::eye(3, 3, CV_64F), new_K_,
+            cv::Size(und_w_, und_h_), CV_16SC2, und_map1_, und_map2_);
+        maps_ready_ = true;
+        RCLCPP_INFO(get_logger(), "fisheye->pinhole undistort maps ready (%dx%d)", und_w_, und_h_);
+      }
+      cv::Mat rect;
+      cv::remap(im, rect, und_map1_, und_map2_, cv::INTER_LINEAR);
+      im = rect;
     }
 
     // Drain IMU samples up to this image time. CRUCIAL for mono-inertial: wait
@@ -376,6 +419,12 @@ class OrbSlam3Node : public rclcpp::Node {
   // params
   std::string voc_file_, settings_file_, image_topic_, imu_topic_, output_ns_;
   double image_delay_ = 0.0;  // cam-IMU timeshift [s]
+
+  // fisheye -> pinhole undistort (built lazily on the first frame)
+  bool undistort_ = true;
+  bool maps_ready_ = false;
+  int und_w_ = 0, und_h_ = 0;
+  cv::Mat fish_K_, fish_D_, new_K_, und_map1_, und_map2_;
 
   std::unique_ptr<ORB_SLAM3::System> slam_;
   std::unique_ptr<PoseGraphBuilder> pgb_;
