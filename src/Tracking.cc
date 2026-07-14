@@ -3198,6 +3198,16 @@ bool Tracking::TrackLocalMap()
     // Decide if the tracking was succesful
     // More restrictive if there was a relocalization recently
     mpLocalMapper->mnMatchesInliers=mnMatchesInliers;
+    { // [ZFLOC-DBG] per-frame TrackLocalMap diagnostics (mono-inertial fail hunt)
+        Eigen::Vector3f _tw = mCurrentFrame.GetPose().inverse().translation();
+        std::cerr << "[TLMdbg] id=" << mCurrentFrame.mnId
+                  << " N=" << mCurrentFrame.N
+                  << " assoc=" << aux1 << " outlier=" << aux2
+                  << " inliers=" << mnMatchesInliers
+                  << " imuInit=" << mpAtlas->isImuInitialized()
+                  << " twc=[" << _tw(0) << "," << _tw(1) << "," << _tw(2) << "]"
+                  << std::endl;
+    }
     if(mCurrentFrame.mnId<mnLastRelocFrameId+mMaxFrames && mnMatchesInliers<50)
         return false;
 
