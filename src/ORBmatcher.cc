@@ -1727,10 +1727,15 @@ namespace ORB_SLAM3
             std::vector<std::pair<int, int>> indicesInKF;
             indicesInKF.reserve(4);
             auto indicesInKFTuple = pMP->GetIndexInKeyFrame(pKF);
+            // Only project into cameras that actually exist on this KeyFrame. The loop
+            // body calls pKF->GetCamera(camId)->project(...), and GetCamera(1/2/3) returns
+            // mpCamera2/3/4 -- nullptr for a monocular KF -> null deref segfault in
+            // LoopClosing::CorrectLoop -> SearchAndFuse. Guard on camera existence so mono
+            // fuses only camId 0 while stereo/multi still fuse all present sub-cameras.
             indicesInKF.push_back(std::pair<int, int>(0, std::get<0>(indicesInKFTuple)));
-            indicesInKF.push_back(std::pair<int, int>(1, std::get<1>(indicesInKFTuple)));
-            indicesInKF.push_back(std::pair<int, int>(2, std::get<2>(indicesInKFTuple)));
-            indicesInKF.push_back(std::pair<int, int>(3, std::get<3>(indicesInKFTuple)));
+            if(pKF->mpCamera2) indicesInKF.push_back(std::pair<int, int>(1, std::get<1>(indicesInKFTuple)));
+            if(pKF->mpCamera3) indicesInKF.push_back(std::pair<int, int>(2, std::get<2>(indicesInKFTuple)));
+            if(pKF->mpCamera4) indicesInKF.push_back(std::pair<int, int>(3, std::get<3>(indicesInKFTuple)));
 
             for (const auto& camId_KpId : indicesInKF)
             {
