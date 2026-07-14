@@ -109,7 +109,11 @@ class OrbSlam3Node : public rclcpp::Node {
     // re-emitted /image topic stays the RAW fisheye (downstream reconstructs from the
     // raw panorama bag, and poses are in the same cam0 frame). Defaults = proven
     // DROID-W recipe (project_droidw_hilti_fisheye_undistort) + calib.txt Knew.
-    undistort_ = declare_parameter<bool>("undistort", true);
+    // Default false: feed the RAW fisheye and let ORB's KannalaBrandt8 model handle
+    // distortion (matches the working ORB-SLAM3 setup; full FoV anchors the IMU). The
+    // undistort->narrow-pinhole path let the inertial estimate diverge. Set undistort:=true
+    // + a Rectified/PinHole config only to revisit the undistort experiment.
+    undistort_ = declare_parameter<bool>("undistort", false);
     const double fx = declare_parameter<double>("fisheye_fx", 465.3015482593691);
     const double fy = declare_parameter<double>("fisheye_fy", 465.32303798346413);
     const double cx = declare_parameter<double>("fisheye_cx", 730.0455886686005);

@@ -21,18 +21,30 @@
 #--------------------------------------------------------------------------------------------
 File.version: "1.0"
 
-# "Rectified": the node hands ORB an already-undistorted ideal pinhole image, so
-# there is no distortion to model. This model path (Settings.cc) takes only the
-# 4 intrinsics -- crucially it does NOT require Camera1.overlappingBegin/End and
-# does NOT run the MAVIS PinHole branch's KannalaBrandt8-cast on the Pinhole object
-# (an out-of-bounds write that corrupts the heap). Use "Rectified", not "PinHole".
-Camera.type: "Rectified"
+# "KannalaBrandt8": feed the RAW ~200 deg fisheye directly (node undistort=false) and
+# let ORB model the fisheye distortion, exactly like the working official ORB-SLAM3
+# mono-inertial front-end (floor_1 ate2d 0.243m). The full fisheye FoV gives far
+# stronger visual constraints than the narrow (~92 deg) undistorted pinhole, which was
+# too weak to anchor the IMU and let the inertial estimate diverge (z-span 78m on a
+# flat floor, ate 14.7m). The earlier "KB8 -> tracking collapse" that motivated the
+# undistort was observed BEFORE the mono null-deref crashes (mpCamera3/4, loop-Fuse,
+# KeyFrameCulling) were fixed -- those crashes were the collapse. NOTE: this is the KB8
+# *camera model*, NOT Camera.type "PinHole" (whose MAVIS branch heap-corrupts via a
+# KB8 cast). overlappingBegin/End are optional for KannalaBrandt (mono).
+Camera.type: "KannalaBrandt8"
 
-# Virtual pinhole intrinsics (post-undistort target Knew = calib.txt "700 700 736 720").
-Camera1.fx: 700.0
-Camera1.fy: 700.0
-Camera1.cx: 736.0
-Camera1.cy: 720.0
+# cam0 raw fisheye (pinhole-equidistant / Kannala-Brandt) intrinsics == $GROUP/hilti
+# calib + OKVIS2-X hilti_challenge_2026 cam0 (same kalibr fit as ORB-SLAM3 config).
+Camera1.fx: 465.3015482593691
+Camera1.fy: 465.32303798346413
+Camera1.cx: 730.0455886686005
+Camera1.cy: 720.1427007671206
+
+# Equidistant (KB8) distortion k1..k4 (raw fisheye).
+Camera1.k1: 0.025800718903376804
+Camera1.k2: -0.010909240777406872
+Camera1.k3: -0.0016899537986031076
+Camera1.k4: 0.00014766801645260894
 
 # Undistorted image size (node keeps input resolution).
 Camera.width: 1472
