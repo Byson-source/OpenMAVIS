@@ -544,7 +544,13 @@ void KeyFrame::ChangeParent(KeyFrame *pKF)
     }
 
     mpParent = pKF;
-    pKF->AddChild(this);
+    // SetBadFlag's orphan-reparent fallback calls ChangeParent(mpParent) with a possibly
+    // null mpParent (a culled non-init KF whose children could not be re-attached via
+    // covisibility). Under monocular map instability this fires; pKF->AddChild(this) on a
+    // null parent segfaults (LocalMapping::KeyFrameCulling -> SetBadFlag -> ChangeParent ->
+    // AddChild). A null parent just makes this KF a spanning-tree root, which is valid.
+    if(pKF)
+        pKF->AddChild(this);
 }
 
 set<KeyFrame*> KeyFrame::GetChilds()
