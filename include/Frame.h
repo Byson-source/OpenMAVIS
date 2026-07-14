@@ -357,8 +357,12 @@ private:
     std::mutex *mpMutexImu;
 
 public:
-    GeometricCamera* mpCamera, *mpCamera2; // For stereo left and right camera
-    GeometricCamera* mpCamera3, *mpCamera4; // For sideleft and right camera
+    GeometricCamera* mpCamera = nullptr, *mpCamera2 = nullptr; // For stereo left and right camera
+    // Default-null so the monocular / stereo Frame ctors (which only set mpCamera2)
+    // never leave these indeterminate. MAVIS gates its 4-camera branches on
+    // if(mpCamera3)/if(mpCamera4) non-nullness, so a garbage-nonzero pointer sends
+    // single-camera execution into the multi-cam path -> segfault right after map init.
+    GeometricCamera* mpCamera3 = nullptr, *mpCamera4 = nullptr; // For sideleft and right camera
 
     //Number of KeyPoints extracted in the left and right images
     int Nleft, Nright;

@@ -532,8 +532,11 @@ protected:
     std::mutex mMutexMap;
 
 public:
-    GeometricCamera* mpCamera, *mpCamera2;
-    GeometricCamera* mpCamera3, *mpCamera4;
+    GeometricCamera* mpCamera = nullptr, *mpCamera2 = nullptr;
+    // Default-null (see Frame.h): a KeyFrame built from a monocular Frame must not
+    // inherit garbage mpCamera3/mpCamera4, or the 4-cam branches in LocalMapping /
+    // Optimizer / G2oTypes fire and segfault.
+    GeometricCamera* mpCamera3 = nullptr, *mpCamera4 = nullptr;
 
     //Indexes of stereo observations correspondences
     std::vector<int> mvLeftToRightMatch, mvRightToLeftMatch;
