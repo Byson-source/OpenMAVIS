@@ -20,10 +20,7 @@
 #include <condition_variable>
 #include <csignal>
 #include <cstdint>
-#include <cstdio>
 #include <cstring>
-#include <execinfo.h>
-#include <unistd.h>
 #include <deque>
 #include <memory>
 #include <mutex>
@@ -465,21 +462,7 @@ class OrbSlam3Node : public rclcpp::Node {
   uint64_t last_max_kf_ = UINT64_MAX;
 };
 
-// [ZFLOC-DBG] print a symbolic backtrace on SIGSEGV/SIGABRT so we see the exact
-// crash frame (apptainer suppresses core dumps). Async-signal-unsafe but fine for
-// a one-shot post-mortem during debugging.
-static void OnFatalSignal(int sig) {
-  void* frames[64];
-  int n = backtrace(frames, 64);
-  std::fprintf(stderr, "\n[ZFLOC-DBG] fatal signal %d, backtrace (%d frames):\n", sig, n);
-  backtrace_symbols_fd(frames, n, STDERR_FILENO);
-  std::signal(sig, SIG_DFL);
-  std::raise(sig);
-}
-
 int main(int argc, char** argv) {
-  std::signal(SIGSEGV, OnFatalSignal);
-  std::signal(SIGABRT, OnFatalSignal);
   rclcpp::init(argc, argv, rclcpp::InitOptions(),
                rclcpp::SignalHandlerOptions::None);
   std::signal(SIGINT, OnSigint);

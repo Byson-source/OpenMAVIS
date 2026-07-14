@@ -88,8 +88,6 @@ target_link_libraries(openmavis_lib
   -lboost_serialization
   -lcrypto
 )
-# [ZFLOC-DBG] keep line info in the core lib so SIGSEGV backtraces resolve to file:line.
-target_compile_options(openmavis_lib PRIVATE -g)
 
 # ROS2 mono-inertial front-end node.
 add_executable(hilti_mono_inertial_node
@@ -99,9 +97,6 @@ add_executable(hilti_mono_inertial_node
 )
 ament_target_dependencies(hilti_mono_inertial_node ${THIS_PACKAGE_INCLUDE_DEPENDS})
 target_link_libraries(hilti_mono_inertial_node openmavis_lib)
-# [ZFLOC-DBG] export dynamic symbols + line info so the SIGSEGV backtrace is symbolic.
-target_compile_options(hilti_mono_inertial_node PRIVATE -g)
-target_link_options(hilti_mono_inertial_node PRIVATE -rdynamic)
 
 install(TARGETS openmavis_lib DBoW2 g2o
   ARCHIVE DESTINATION lib
